@@ -1,69 +1,92 @@
 import os
+import streamlit as st
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
 
 ENDPOINT = "https://foundry-tecnun-resource.services.ai.azure.com/api/projects/foundry-tecnun-project"
-AGENT_NAME = "my-agent"  
-EXIT_WORDS = {"exit", "quit", "salir"}
+AGENT_NAME = "my-agent"  # put your real agent name here
+
+st.set_page_config(page_title="Yoda Study Coach", page_icon="🟢")
+st.title("CF-101 Study Coach")
 
 
-def save_generated_files(openai_client, response):
-    """Download files made by Code Interpreter (e.g. charts) into the current folder."""
+@st.cache_resource
+def get_clients():
+    """Created once and shared by all sessions. Keep both objects alive."""
+    credential = DefaultAzureCredential()
+    project_client = AIProjectClient(
+        endpoint=ENDPOINT, credential=credential, allow_preview=True
+    )
+    return project_client, project_client.get_openai_client(agent_name=AGENT_NAME)
+
+
+_project_client, client = get_clients()
+
+
+def new_conversation():
+    st.session_state.conversation_id = client.conversations.create().id
+    st.session_state.messages = []  # each: {"role", "content", "files"}
+
+
+def extract_files(response):
+    """Download files created by Code Interpreter (charts, etc.)."""
+    files = []
     for item in response.output:
         if item.type != "message":
             continue
         for part in item.content:
             for ann in getattr(part, "annotations", None) or []:
                 if ann.type == "container_file_citation":
-                    data = openai_client.containers.files.content.retrieve(
+                    data = client.containers.files.content.retrieve(
                         file_id=ann.file_id, container_id=ann.container_id
                     )
-                    filename = os.path.basename(ann.filename)
-                    with open(filename, "wb") as f:
-                        f.write(data.read())
-                    print(f"[saved file: {filename}]")
+                    files.append((os.path.basename(ann.filename), data.read()))
+    return files
 
 
-def main():
-    with (
-        DefaultAzureCredential() as credential,
-        AIProjectClient(
-            endpoint=ENDPOINT,
-            credential=credential,
-            allow_preview=True,
-        ) as project_client,
-    ):
-        openai_client = project_client.get_openai_client(agent_name=AGENT_NAME)
+def show_files(files, key_prefix):
+    for i, (name, data) in enumerate(files):
+        if name.lower().endswith((".png", ".jpg", ".jpeg")):
+            st.image(data, caption=name)
+        else:
+            st.download_button(f"Download {name}", data, file_name=name,
+                               key=f"{key_prefix}-{i}")
 
-        # One conversation for the whole session, so the agent keeps the context.
-        conversation = openai_client.conversations.create()
-        print(f"Connected to '{AGENT_NAME}'. Type 'exit' to quit.\n")
 
-        while True:
-            try:
-                user_message = input("You: ").strip()
-            except (EOFError, KeyboardInterrupt):
-                print("\nBye!")
-                break
+if "conversation_id" not in st.session_state:
+    new_conversation()
 
-            if not user_message:
-                continue
-            if user_message.lower() in EXIT_WORDS:
-                print("Bye!")
-                break
+with st.sidebar:
+    st.write(f"Agent: `{AGENT_NAME}`")
+    if st.button("New conversation"):
+        new_conversation()
+        st.rerun()
 
-            try:
-                response = openai_client.responses.create(
-                    conversation=conversation.id,
-                    input=[{"role": "user", "content": user_message}],
+# Replay the history (Streamlit reruns the script on every interaction).
+for n, msg in enumerate(st.session_state.messages):
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+        show_files(msg["files"], key_prefix=f"hist-{n}")
+
+if prompt := st.chat_input("Ask your study coach..."):
+    st.session_state.messages.append({"role": "user", "content": prompt, "files": []})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    with st.chat_message("assistant"):
+        try:
+            with st.spinner("Meditating..."):
+                response = client.responses.create(
+                    conversation=st.session_state.conversation_id,
+                    input=[{"role": "user", "content": prompt}],
                 )
-            except Exception as e:  # keep the session alive on a failed request
-                print(f"[error] {e}\n")
-                continue
+                answer = response.output_text
+                files = extract_files(response)
+        except Exception as e:
+            answer, files = f"Error: {e}", []
+        st.markdown(answer)
+        show_files(files, key_prefix="new")
 
-            print(f"\nAgent: {response.output_text}\n")
-            save_generated_files(openai_client, response)
-
-
-if __name__ == "__main__":
-    main()
+    st.session_state.messages.append(
+        {"role": "assistant", "content": answer, "files": files}
+    )
