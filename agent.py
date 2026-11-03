@@ -6,7 +6,7 @@ from azure.ai.projects import AIProjectClient
 ENDPOINT = "https://foundry-tecnun-resource.services.ai.azure.com/api/projects/foundry-tecnun-project"
 AGENT_NAME = "my-agent"  # put your real agent name here
 
-st.set_page_config(page_title="Yoda Study Coach", page_icon="🟢")
+st.set_page_config(page_title="Study Coach", page_icon="🟢")
 st.title("CF-101 Study Coach")
 
 

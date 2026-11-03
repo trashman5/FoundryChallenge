@@ -1,4 +1,4 @@
-# 🟢 Yoda-Study: A CF-101 Study Coach Agent
+# A CF-101 Study Coach Agent
 
 > *"Prepare for the exam, you will. Quiz you, I shall."*
 
@@ -8,7 +8,7 @@ Built for the *Cloud Computing* challenge.
 
 --- 
 
-## 🧩 How it fits together
+## How it fits together
 
 | Piece | What it does |
 |---|---|
@@ -21,7 +21,7 @@ Built for the *Cloud Computing* challenge.
 
 ---
 
-## 📚 The knowledge base (fictional PDFs)
+## The knowledge base (fictional PDFs)
 
 Everything is made up, so nobody's real data was harmed.
 
@@ -36,7 +36,7 @@ The numbers are deliberately noisy and the weighted scores are *not* printed any
 
 ---
 
-## 🧠 The agent's instructions
+## The agent's instructions
 
 <details>
 <summary>Click to see the system prompt</summary>
@@ -53,7 +53,7 @@ You can also use the GitHub MCP to review the student's projects and manage issu
 
 ---
 
-## 📝 Notes
+## Notes
 
 - CF-101 is **fictional** and not affiliated with any real certification body. The PDFs contain invented data only.
 - The Microsoft Learn MCP is used for the real technical concepts, never for CF-101 exam rules.
